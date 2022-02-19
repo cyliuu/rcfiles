@@ -77,7 +77,7 @@ def user_defined_action(ctx):
                  'q': f'{title} {artist}'}
         app.browser.goto(uri='/search', query=query)
 
-    def netease_rematch(models):
+    def rematch(models):
         if not models or models[0].meta.model_type != ModelType.song:
             return
         song = models[0]
@@ -91,7 +91,6 @@ def user_defined_action(ctx):
         app.browser.goto(uri='/search', query=query)
 
         def netease_rematch(song):
-            print(song.title, song.identifier)
             adjust_identifier = input(f'云音乐匹配 \'{title} - {artist}\', identifier: {song.identifier} - > adjust_identifier: ')
             if not adjust_identifier:
                 print(f'云音乐 \'{title} - {artist}\', identifier: {song.identifier} 匹配取消!')
@@ -111,7 +110,7 @@ def user_defined_action(ctx):
     add_action = ctx['add_action']
     add_action('展示信息', show)
     add_action('重新搜索', research)
-    add_action('云音乐匹配', netease_rematch)
+    add_action('云音乐匹配', rematch)
 
 
 # fuo_dl自定义功能
