@@ -1,0 +1,207 @@
+# -*- mode: Python; -*-
+# vi: ft=python
+
+import os
+import threading
+from functools import partial
+
+
+# 环境变量设置
+os.environ['FUO_QQMUSIC_LOGIN_URL'] = 'https://xui.ptlogin2.qq.com/cgi-bin/xlogin?appid=1006102&daid=384&low_login=1&pt_no_auth=1&s_url=https://y.qq.com/vip/daren_recruit/apply.html&style=40'
+os.environ['FUO_QQMUSIC_LOGIN_COOKIE_KEYS'] = 'skey'
+
+
+if os.name == 'nt':
+    # 自定义配置
+    config.THEME = 'macos_dark'
+    config.COLLECTIONS_DIR = 'D:/我的坚果云'
+    config.AUDIO_SELECT_POLICY = 'hq<>'
+    config.PROVIDERS_STANDBY = ['local', 'qqmusic', 'netease']
+
+    # fuo_local配置 & fuo_dl配置
+    def set_plugin_config(plugin):
+        if plugin.name == 'fuo_local':
+            app.config.fuo_local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Music/Library']
+            app.config.fuo_local.MUSIC_FORMATS = ['mp3', 'ogg', 'wma', 'm4a', 'm4v', 'mp4', 'flac']
+            app.config.fuo_local.CORE_LANGUAGE = 'cn'
+            app.config.fuo_local.IDENTIFIER_DELIMITER = '-'
+        if plugin.name == 'fuo_dl':
+            app.config.fuo_dl.DOWNLOAD_DIR = os.path.expanduser('~') + '/Music/Download'
+            app.config.fuo_dl.NAME_FORMATS = ['{albumartist}/{album}/{track} {title}', '{albumartist}/{album}/{title}', '{artist}/{title}']
+            app.config.fuo_dl.CORE_LANGUAGE = 'tc'
+else:
+    # 自定义配置
+    config.THEME = 'auto'
+    config.COLLECTIONS_DIR = os.path.expanduser('~/Documents/我的坚果云')
+    config.AUDIO_SELECT_POLICY = 'hq<>'
+    config.PROVIDERS_STANDBY = ['local', 'qqmusic', 'netease']
+    
+    # fuo_local配置 & fuo_dl配置
+    def set_plugin_config(plugin):
+        if plugin.name == 'fuo_local':
+            app.config.fuo_local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Music']
+            # app.config.fuo_local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Desktop/songs']
+            app.config.fuo_local.MUSIC_FORMATS = ['mp3', 'ogg', 'wma', 'm4a', 'm4v', 'mp4', 'flac']
+            app.config.fuo_local.CORE_LANGUAGE = 'cn'
+            app.config.fuo_local.IDENTIFIER_DELIMITER = '-'
+        if plugin.name == 'fuo_dl':
+            app.config.fuo_dl.DOWNLOAD_DIR = os.path.expanduser('~') + '/Desktop/songs'
+            app.config.fuo_dl.NAME_FORMATS = ['{albumartist}/{album}/{track} {title}', '{albumartist}/{album}/{title}', '{artist}/{title}']
+            app.config.fuo_dl.CORE_LANGUAGE = 'tc'
+
+when('app.plugin_mgr.about_to_enable', set_plugin_config, use_symbol=True, aioqueue=False)
+
+
+# 自定义功能
+def user_defined_action(ctx):
+    from feeluown.models import ModelType, SearchType
+
+    def show(models):
+        for model in models:
+            if model.meta.model_type == ModelType.song:
+                print(str(model))
+
+    def research(models):
+        if not models or models[0].meta.model_type != ModelType.song:
+            return
+        song = models[0]
+        title = song.title_display
+        artist = song.artists_name_display
+        sources = []
+        for provider in app.library.list():
+            if provider.identifier == song.source:
+                continue
+            sources.append(provider.identifier)
+        query = {'source_in': ','.join(sources),
+                 'type': SearchType.so.value,
+                 'q': f'{title} {artist}'}
+        app.browser.goto(uri='/search', query=query)
+
+    def netease_rematch(models):
+        if not models or models[0].meta.model_type != ModelType.song:
+            return
+        song = models[0]
+        if song.source != 'netease':
+            return
+        title = song.title_display
+        artist = song.artists_name_display
+        query = {'source_in': ','.join([song.source]),
+                 'type': SearchType.so.value,
+                 'q': f'{title} {artist}'}
+        app.browser.goto(uri='/search', query=query)
+
+        def netease_rematch(song):
+            print(song.title, song.identifier)
+            adjust_identifier = input(f'云音乐匹配 \'{title} - {artist}\', identifier: {song.identifier} - > adjust_identifier: ')
+            if not adjust_identifier:
+                print(f'云音乐 \'{title} - {artist}\', identifier: {song.identifier} 匹配取消!')
+
+            provider = app.library.get(song.source)
+            if provider is None:
+                return
+            ok = provider.api.cloud_song_match(song.identifier, adjust_identifier)
+            if ok:
+                print(f'云音乐匹配 \'{title} - {artist}\', identifier: {song.identifier} - > adjust_identifier: {adjust_identifier} 匹配成功!')
+            else:
+                print(f'云音乐匹配 \'{title} - {artist}\', identifier: {song.identifier} - > adjust_identifier: {adjust_identifier} 匹配失败!')
+
+        threading.Thread(
+        target=partial(netease_rematch, song)).start()
+
+    add_action = ctx['add_action']
+    add_action('展示信息', show)
+    add_action('重新搜索', research)
+    add_action('云音乐匹配', netease_rematch)
+
+
+# fuo_dl自定义功能
+def netease_album_info(album, provider):
+    data = provider.api.album_infos(album.identifier)
+    if data is None:
+        return dict()
+
+    import time
+    tag_info = {
+        'date': time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(int(data['publishTime']) / 1000))}
+    try:
+        # song['disc']有可能为''(音乐选秀节目中), song['no']有可能为0(单曲中)
+        songs_identifier = [int(song['id']) for song in data['songs']]
+        songs_disc = [int(song['disc']) if song['disc'] else 1 for song in data['songs']]
+        disc_counts = {x: songs_disc.count(x) for x in range(1, songs_disc[-1] + 1)}
+        tag_info['discs'] = dict(zip(songs_identifier, [str(disc) + '/' + str(songs_disc[-1])
+                                                        for disc in songs_disc]))
+        tag_info['tracks'] = dict(zip(songs_identifier, [
+            str(song['no'] if song['no'] else 1) + '/' + str(disc_counts[int(song['disc'])
+            if song['disc'] else 1]) for song in data['songs']]))
+    except Exception as e:
+        print(e)
+    return tag_info
+
+def qqmusic_album_info(album, provider):
+    data = provider.api.album_detail(album.identifier)
+    if data is None:
+        return dict()
+
+    # 有时候显示的歌手名有问题，需要专门请求(如fuo://qqmusic/songs/217490728包含了好几个歌手)
+    if '/' in album.artists[0].name:
+        album.artists[0].name = provider.api.artist_detail(album.artists[0].identifier)['singer_name']
+    import re
+    fil = re.compile(u'[^0-9a-zA-Z/&]+', re.UNICODE)
+    tag_info = {
+        'albumartist': album.artists_name,
+        'date': data['getAlbumInfo']['Fpublic_time'] + 'T00:00:00',
+        'genre': (fil.sub(' ', data['genre'])).strip()}
+
+    try:
+        songs_identifier = [int(song['id']) for song in data['getSongInfo']]
+        songs_disc = [song['index_cd'] + 1 for song in data['getSongInfo']]
+        disc_counts = {x: songs_disc.count(x) for x in range(1, max(songs_disc) + 1)}
+        track_bias = [0]
+        for i in range(1, len(disc_counts)):
+            track_bias.append(track_bias[-1] + disc_counts[i])
+        tag_info['discs'] = dict(zip(songs_identifier, [str(disc) + '/' + str(songs_disc[-1])
+                                                        for disc in songs_disc]))
+        tag_info['tracks'] = dict(zip(songs_identifier, [
+            str(song['index_album'] - track_bias[song['index_cd']]) + '/' + str(disc_counts[song['index_cd'] + 1])
+            for song in data['getSongInfo']]))
+    except Exception as e:
+        print(e)
+    return tag_info
+
+def refine_tagobj(model):
+    from feeluown.models import ModelType
+
+    if model.meta.model_type == ModelType.song:
+        # this will get more info such as genre, date, track & disc for tag completion
+        song = model
+        provider = app.library.get(song.source)
+        if provider is None:
+            return dict()
+
+        if not song.album_name.strip():
+            return dict()
+        if model.source == 'netease':
+            album_info = netease_album_info(song.album, provider)
+        elif model.source == 'qqmusic':
+            album_info = qqmusic_album_info(song.album, provider)
+
+        song_info = dict()
+        if int(song.identifier) in album_info['discs']:
+            song_info['discnumber'] = album_info.pop('discs')[int(song.identifier)]
+            song_info['tracknumber'] = album_info.pop('tracks')[int(song.identifier)]
+        else:
+            album_info.pop('discs')
+            album_info.pop('tracks')
+        return dict(song_info, **album_info)
+    else:
+        return dict()
+
+
+def after_app_initialized(app):
+    if app.mode & app.GuiMode:
+        when('app.ui.songs_table.about_to_show_menu', user_defined_action, use_symbol=True)
+
+        if hasattr(app, 'tag_mgr'):
+            app.tag_mgr.refine_tagobj_func = refine_tagobj
+
+when('app.initialized', after_app_initialized)
