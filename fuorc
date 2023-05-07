@@ -18,13 +18,15 @@ if os.name == 'nt':
     config.AUDIO_SELECT_POLICY = 'hq<>'
     config.PROVIDERS_STANDBY = ['local', 'qqmusic', 'netease']
 
-    # fuo_local配置 & fuo_dl配置
+    # local配置 & fuo_dl配置
     def set_plugin_config(plugin):
-        if plugin.name == 'fuo_local':
-            app.config.fuo_local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Music/Library']
-            app.config.fuo_local.MUSIC_FORMATS = ['mp3', 'ogg', 'wma', 'm4a', 'm4v', 'mp4', 'flac']
-            app.config.fuo_local.CORE_LANGUAGE = 'cn'
-            app.config.fuo_local.IDENTIFIER_DELIMITER = '-'
+        if plugin.name == 'local':
+            app.config.local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Music/Library']
+            app.config.local.MUSIC_FORMATS = ['mp3', 'ogg', 'wma', 'm4a', 'm4v', 'mp4', 'flac']
+            app.config.local.CORE_LANGUAGE = 'cn'
+            app.config.local.IDENTIFIER_DELIMITER = '-'
+            app.config.local.ARTIST_SPLITTER_IGNORANCE = ['Leslie Odom, Jr.', 'Years & Years', 'Jack & Jack', 'Some & Any', 'Cat & Calmell', 'Elsa & Emilie']
+            app.config.local.SPLIT_ALBUM_ARTIST_NAME = True
         if plugin.name == 'fuo_dl':
             app.config.fuo_dl.DOWNLOAD_DIR = os.path.expanduser('~') + '/Music/Download'
             app.config.fuo_dl.NAME_FORMATS = ['{albumartist}/{album}/{track} {title}', '{albumartist}/{album}/{title}', '{artist}/{title}']
@@ -36,14 +38,17 @@ else:
     config.AUDIO_SELECT_POLICY = 'hq<>'
     config.PROVIDERS_STANDBY = ['local', 'qqmusic', 'netease']
     
-    # fuo_local配置 & fuo_dl配置
+    # local配置 & fuo_dl配置
     def set_plugin_config(plugin):
-        if plugin.name == 'fuo_local':
-            app.config.fuo_local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Music']
-            # app.config.fuo_local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Desktop/songs']
-            app.config.fuo_local.MUSIC_FORMATS = ['mp3', 'ogg', 'wma', 'm4a', 'm4v', 'mp4', 'flac']
-            app.config.fuo_local.CORE_LANGUAGE = 'cn'
-            app.config.fuo_local.IDENTIFIER_DELIMITER = '-'
+        if plugin.name == 'local':
+            app.config.local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Music']
+            # app.config.local.MUSIC_FOLDERS = [os.path.expanduser('~') + '/Desktop/songs']
+            app.config.local.MUSIC_FORMATS = ['mp3', 'ogg', 'wma', 'm4a', 'm4v', 'mp4', 'flac']
+            # app.config.local.MUSIC_FORMATS = ['mp3', 'm4a', 'mp4', 'flac']
+            app.config.local.CORE_LANGUAGE = 'cn'
+            app.config.local.IDENTIFIER_DELIMITER = '-'
+            app.config.local.ARTIST_SPLITTER_IGNORANCE = ['Leslie Odom, Jr.', 'Years & Years', 'Jack & Jack', 'Some & Any', 'Cat & Calmell', 'Elsa & Emilie']
+            app.config.local.SPLIT_ALBUM_ARTIST_NAME = True
         if plugin.name == 'fuo_dl':
             app.config.fuo_dl.DOWNLOAD_DIR = os.path.expanduser('~') + '/Desktop/songs'
             app.config.fuo_dl.NAME_FORMATS = ['{albumartist}/{album}/{track} {title}', '{albumartist}/{album}/{title}', '{artist}/{title}']
